@@ -1,30 +1,24 @@
 #include <Servo.h>                     // Servo Library
 #include <HCSR04.h>                    // Ultrasonic sensor library
-#include <LiquidCrystal.h>             // includes the LiquidCrystal Library
 #include <ESP8266WiFi.h>               // Load Wi-Fi library
 #define TWELVEHOURS 30                 //(43200) In seconds
 const char* ssid = "Foster";           //WiFi name
 const char* password = "Fuckthis1!2";  //WiFi password
 WiFiServer server(80);                 // Set web server port number to 80
 String header;                         // Variable to store the HTTP request
-
 unsigned long currentTime = millis();  // Current time
 unsigned long previousTime = 0;        // Previous time
 const long timeoutTime = 500;          // Define timeout time in milliseconds (example: 2000ms = 2s)
 unsigned long timer = 0, timeStamp = 0;
 bool autoFeed = false;      //Toggleable bool for autoFeed
 String feedNow = "Off";     //Toggleable string for feedNow
-int currentTankLevel = -1;  //Int for tank level
-
 UltraSonicDistanceSensor HC_SR04(4, 5);                        // UltraSonic sensor with pins (Trig, echo)
-const int rs = 14, en = 12, d4 = 13, d5 = 15, d6 = 3, d7 = 1;  //Creates ints of pins for LCD
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);                     //Connects pins to LCD
 Servo servo;                                                   // Creates servo object
+String tankLevel = "Empty";
 
 void setup() {
   servo.attach(16);                        // Initialize servo with pins
   servo.write(0);                          //Initial servo position
-  lcd.begin(16, 2);                        // Set up the LCD's number of columns and rows:
   Serial.begin(115200);                    //Begins serial with 115200 Baud Rate
   Serial.print("Connecting to ");          // Connect to Wi-Fi network with SSID and password
   Serial.println(ssid);                    //Prints for Wifi setup
@@ -100,6 +94,7 @@ void handleClient() {  //Function for reciving signals
             client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
             client.println(".button2 {background-color: #387910;}.button3 {background-color: #7E7979;}</style></head>");
             client.println("<body><h1>Automatic Pet Feeder</h1>");  // Web Page Heading
+            client.println("<body><h2>Current Tank Level: " + tankLevel + "<h2>");
             client.println("<p>Feed Now </p>");
             // Display current state
             if (feedNow == "Off") {  // If the feedNow is Off, it displays the On button
@@ -147,44 +142,41 @@ void resetTimer() {  //Function to Reset time
 }
 
 void feed() {  //Function to feed
-  servo.write(90);
-  delay(1000);
+  servo.write(180);
+  delay(2000);
   servo.write(0);
   Serial.println("Feeding Now");
   checkTankLevel();  //Function to check the current fullness of tank
 }
 
 void checkTankLevel() {
-  int distance = HC_SR04.measureDistanceCm();  //Creates int for distance to be measured by Ultrasonic sensor
+  int distance = HC_SR04.measureDistanceCm(); //Creates int for distance to be measured by Ultrasonic sensor
   if (distance > -1) {                         // If value is read
-    int tankLevel;                             // Condition for switch statement
-    if (distance < 15) {                       // Value for full
-      tankLevel = 0;
-    } else if (distance >= 15 && distance <= 30) {  // Value for low
-      tankLevel = 1;
+    Serial.println(distance);
+    int tankDistance;     
+    if (distance < 5) {                       // Value for full
+      tankDistance = 0;
+    } else if (distance >= 5 && distance <= 6) {  // Value for low
+      tankDistance = 1;
     } else {  // Else empty
-      tankLevel = 2;
+      tankDistance = 2;
     }
-    switch (tankLevel) {  // LCD test with switch statement (placeholder)
+    switch (tankDistance) {  
       case 0:
-        lcd.setCursor(0, 0);
-        lcd.print("Tank lvl: Full");
-        Serial.println("Full");
+        tankLevel = "Full";
+        Serial.println(tankLevel);
         break;
       case 1:
-        lcd.setCursor(0, 0);
-        lcd.print("Tank lvl: Low ");
-        Serial.println("Low");
+        tankLevel = "Low";
+        Serial.println(tankLevel);
         break;
       case 2:
-        lcd.setCursor(0, 0);
-        lcd.print("Tank lvl: Empty");
-        Serial.println("Empty");
+        tankLevel = "Empty";
+        Serial.println(tankLevel);
         break;
       default:  //Redundancy
-        lcd.setCursor(0, 0);
-        lcd.print("Error");
-        Serial.println("Error");
+        tankLevel = "Error";
+        Serial.println(tankLevel);
         break;
     }
   }
